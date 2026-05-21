@@ -1,0 +1,90 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Cariler{% endblock %}
+{% block page_title %}Cari Listesi{% endblock %}
+
+{% block topbar_right %}
+<a href="{% url 'customer_create' %}" class="btn-g"><i class="fas fa-plus"></i> Yeni Cari</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cari-avatar {
+        width: 34px; height: 34px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: .82rem; flex-shrink: 0; color: #fff;
+    }
+    .cari-row { display: flex; align-items: center; gap: 10px; }
+    .bal-pos { color: #16a34a; font-weight: 700; }
+    .bal-neg { color: #dc2626; font-weight: 700; }
+    .empty-state { text-align:center; padding:60px 20px; color:var(--sub); }
+    .empty-state i { font-size:3rem; margin-bottom:14px; opacity:.3; display:block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="surface">
+    <div class="card-header-bar">
+        <div>
+            <div class="ch-title"><i class="fas fa-address-book me-2" style="color:var(--primary-light);"></i>Cari Listesi</div>
+            <div style="font-size:.77rem;color:var(--sub);margin-top:2px;">{{ customers|length }} cari kayıtlı</div>
+        </div>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="dt">
+            <thead>
+                <tr>
+                    <th>Cari</th>
+                    <th>Telefon</th>
+                    <th>E-posta</th>
+                    <th>Bakiye</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in customers %}
+                {% with colors="2d6a4f,1d4ed8,92400e,6d28d9,0f766e,9f1239" %}
+                <tr>
+                    <td>
+                        <div class="cari-row">
+                            <div class="cari-avatar" style="background:#{{ c.name|first|lower|make_list|first }}{{ c.pk|stringformat:'d'|slice:'-1' }}1a4332;">
+                                {{ c.name|first|upper }}
+                            </div>
+                            <strong>{{ c.name }}</strong>
+                        </div>
+                    </td>
+                    <td style="color:var(--sub);">{{ c.phone|default:'—' }}</td>
+                    <td style="color:var(--sub);font-size:.83rem;">{{ c.email|default:'—' }}</td>
+                    <td>
+                        {% if c.balance >= 0 %}
+                            <span class="bal-pos">₺{{ c.balance }}</span>
+                        {% else %}
+                            <span class="bal-neg">₺{{ c.balance }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'customer_detail' c.pk %}" class="btn-info-soft">
+                            <i class="fas fa-eye"></i> Ekstresi
+                        </a>
+                    </td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <i class="fas fa-address-book"></i>
+                            Henüz cari eklenmedi.
+                            <div style="margin-top:12px;">
+                                <a href="{% url 'customer_create' %}" class="btn-g" style="display:inline-flex;">
+                                    <i class="fas fa-plus"></i> İlk Cariyi Ekle
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

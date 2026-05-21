@@ -1,0 +1,83 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Ödemeler{% endblock %}
+{% block page_title %}Ödeme Planları{% endblock %}
+
+{% block topbar_right %}
+<a href="{% url 'payment_create' %}" class="btn-g"><i class="fas fa-plus"></i> Yeni Plan</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .empty-state { text-align:center; padding:60px 20px; color:var(--sub); }
+    .empty-state i { font-size:3rem; margin-bottom:14px; opacity:.3; display:block; }
+    .bp-monthly  { background:rgba(99,102,241,.1); color:#4f46e5; }
+    .bp-yearly   { background:rgba(20,184,166,.1); color:#0f766e; }
+    .bp-kira     { background:rgba(245,158,11,.1); color:#d97706; }
+    .bp-kredi    { background:rgba(59,130,246,.1); color:#2563eb; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="surface">
+    <div class="card-header-bar">
+        <div>
+            <div class="ch-title"><i class="fas fa-wallet me-2" style="color:var(--primary-light);"></i>Ödeme Planları</div>
+            <div style="font-size:.77rem;color:var(--sub);margin-top:2px;">{{ plans|length }} plan listeleniyor</div>
+        </div>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="dt">
+            <thead>
+                <tr>
+                    <th>Cari</th>
+                    <th>Plan</th>
+                    <th>Kategori</th>
+                    <th>Taksit</th>
+                    <th>Tutar</th>
+                    <th>Vade</th>
+                    <th>Açıklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in plans %}
+                <tr>
+                    <td><strong>{{ p.customer.name }}</strong></td>
+                    <td>
+                        {% if p.plan_type == 'monthly' %}
+                            <span class="bp bp-monthly"><i class="fas fa-rotate"></i> Aylık</span>
+                        {% else %}
+                            <span class="bp bp-yearly"><i class="fas fa-calendar"></i> Yıllık</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.payment_category == 'tarla_kira' %}
+                            <span class="bp bp-kira"><i class="fas fa-seedling"></i> Tarla Kira</span>
+                        {% else %}
+                            <span class="bp bp-kredi"><i class="fas fa-landmark"></i> Kredi</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p.installments }} taksit</td>
+                    <td><strong>₺{{ p.formatted_amount }}</strong></td>
+                    <td style="color:var(--sub);font-size:.83rem;">{{ p.due_date|default:'—' }}</td>
+                    <td style="color:var(--sub);font-size:.83rem;">{{ p.description|default:'—' }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <i class="fas fa-wallet"></i>
+                            Henüz ödeme planı oluşturulmadı.
+                            <div style="margin-top:12px;">
+                                <a href="{% url 'payment_create' %}" class="btn-g" style="display:inline-flex;">
+                                    <i class="fas fa-plus"></i> Yeni Plan Ekle
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

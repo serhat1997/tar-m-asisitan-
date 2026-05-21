@@ -1,0 +1,299 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}{{ field.name }} — Tarla Detayı{% endblock %}
+{% block page_title %}{{ field.name }}{% endblock %}
+
+{% block topbar_right %}
+<a href="{% url 'field_list' %}" class="btn-o" style="padding:7px 14px;font-size:.82rem;">
+    <i class="fas fa-arrow-left"></i> Tarlalar
+</a>
+<a href="{% url 'field_edit' field.pk %}" class="btn-o" style="padding:7px 14px;font-size:.82rem;">
+    <i class="fas fa-edit"></i> Düzenle
+</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* KPI strip */
+    .kpi-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px; }
+    .kpi { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+    .kpi-label { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--sub); margin-bottom:6px; }
+    .kpi-value { font-size:1.35rem; font-weight:800; }
+    .kpi-green { color:#16a34a; } .kpi-red { color:#dc2626; } .kpi-blue { color:#2563eb; } .kpi-gray { color:var(--text); }
+
+    /* Tabs */
+    .tabs { display:flex; gap:4px; margin-bottom:18px; border-bottom:2px solid var(--border); }
+    .tab-btn {
+        padding:9px 18px; font-size:.85rem; font-weight:600;
+        background:none; border:none; cursor:pointer;
+        color:var(--sub); border-bottom:2px solid transparent; margin-bottom:-2px;
+        transition:color .15s, border-color .15s;
+    }
+    .tab-btn.active { color:var(--primary-light); border-bottom-color:var(--primary-light); }
+
+    /* Panel */
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    /* Inline form card */
+    .add-card {
+        background:var(--surface); border:1px solid var(--border);
+        border-radius:var(--radius); padding:20px; margin-bottom:18px;
+    }
+    .add-card-title { font-size:.85rem; font-weight:700; margin-bottom:14px; }
+    .fg3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+    .fg2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .fg4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; }
+
+    /* Badge categories */
+    .cat-iscilik { background:rgba(99,102,241,.1); color:#4f46e5; }
+    .cat-gubre   { background:rgba(34,197,94,.1);  color:#16a34a; }
+    .cat-sulama  { background:rgba(59,130,246,.1);  color:#2563eb; }
+    .cat-ilac    { background:rgba(239,68,68,.1);   color:#dc2626; }
+    .cat-yakit   { background:rgba(245,158,11,.1);  color:#d97706; }
+    .cat-ekipman { background:rgba(107,114,128,.1); color:#4b5563; }
+    .cat-diger   { background:rgba(107,114,128,.1); color:#6b7280; }
+
+    .empty-state { text-align:center; padding:40px 20px; color:var(--sub); }
+    .empty-state i { font-size:2rem; opacity:.25; display:block; margin-bottom:10px; }
+
+    @media(max-width:700px) { .kpi-strip{grid-template-columns:1fr 1fr;} .fg3,.fg4{grid-template-columns:1fr 1fr;} }
+    @media(max-width:460px) { .kpi-strip{grid-template-columns:1fr 1fr;} .fg3,.fg4,.fg2{grid-template-columns:1fr;} }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- KPI strip -->
+<div class="kpi-strip">
+    <div class="kpi">
+        <div class="kpi-label"><i class="fas fa-ruler-combined me-1"></i> Alan</div>
+        <div class="kpi-value kpi-gray">{{ field.area }} dönüm</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label"><i class="fas fa-arrow-up me-1"></i> Toplam Gelir</div>
+        <div class="kpi-value kpi-green">₺{{ total_revenue|floatformat:2 }}</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label"><i class="fas fa-arrow-down me-1"></i> Toplam Gider</div>
+        <div class="kpi-value kpi-red">₺{{ total_expense|floatformat:2 }}</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label"><i class="fas fa-chart-line me-1"></i> Net Kâr/Zarar</div>
+        <div class="kpi-value {% if net >= 0 %}kpi-green{% else %}kpi-red{% endif %}">₺{{ net|floatformat:2 }}</div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('hasat', this)">
+        <i class="fas fa-seedling me-1"></i> Hasat Kayıtları
+        <span style="background:rgba(64,145,108,.12);color:var(--primary-light);border-radius:999px;padding:1px 7px;font-size:.72rem;margin-left:5px;">{{ harvests|length }}</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('gider', this)">
+        <i class="fas fa-receipt me-1"></i> Giderler
+        <span style="background:rgba(239,68,68,.1);color:#dc2626;border-radius:999px;padding:1px 7px;font-size:.72rem;margin-left:5px;">{{ expenses|length }}</span>
+    </button>
+</div>
+
+<!-- ─── HASAT TAB ─── -->
+<div id="tab-hasat" class="tab-panel active">
+    <!-- Hasat ekleme formu -->
+    <div class="add-card">
+        <div class="add-card-title"><i class="fas fa-plus-circle me-1" style="color:var(--primary-light);"></i> Hasat Kaydı Ekle</div>
+        <form method="post" action="{% url 'harvest_add' field.pk %}">
+            {% csrf_token %}
+            <div class="fg4 mb-2">
+                <div>
+                    <label class="form-label">Tarih</label>
+                    <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                </div>
+                <div>
+                    <label class="form-label">Ürün</label>
+                    <select name="product" class="form-select" required>
+                        {% for val, label in product_choices %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Miktar</label>
+                    <input type="text" inputmode="decimal" name="quantity" class="form-control" placeholder="0" required>
+                </div>
+                <div>
+                    <label class="form-label">Birim</label>
+                    <select name="unit" class="form-select">
+                        {% for val, label in unit_choices %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="fg2 mb-2">
+                <div>
+                    <label class="form-label">Birim Fiyat (₺) <span style="font-weight:400;font-size:.75rem;">(opsiyonel)</span></label>
+                    <input type="text" inputmode="decimal" name="unit_price" class="form-control" placeholder="0.00">
+                </div>
+                <div>
+                    <label class="form-label">Not</label>
+                    <input type="text" name="notes" class="form-control" placeholder="Hasat notu…">
+                </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+                <button type="submit" class="btn-g"><i class="fas fa-save"></i> Kaydet</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Hasat tablosu -->
+    <div class="surface">
+        <div class="card-header-bar">
+            <div class="ch-title"><i class="fas fa-list me-2" style="color:var(--primary-light);"></i>Hasat Geçmişi</div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="dt">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Ürün</th>
+                        <th>Miktar</th>
+                        <th>Birim Fiyat</th>
+                        <th>Toplam</th>
+                        <th>Not</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in harvests %}
+                    <tr>
+                        <td style="font-size:.82rem;color:var(--sub);">{{ h.date|date:"d.m.Y" }}</td>
+                        <td><span class="bp bp-sale">{{ h.get_product_display }}</span></td>
+                        <td>{{ h.quantity }} {{ h.get_unit_display }}</td>
+                        <td style="color:var(--sub);">
+                            {% if h.unit_price %}₺{{ h.unit_price }}{% else %}—{% endif %}
+                        </td>
+                        <td>
+                            {% if h.unit_price %}
+                                <strong style="color:#16a34a;">₺{{ h.amount|floatformat:2 }}</strong>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td style="color:var(--sub);font-size:.82rem;">{{ h.notes|default:'—' }}</td>
+                        <td>
+                            <form method="post" action="{% url 'harvest_delete' field.pk h.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-danger-soft" style="padding:5px 10px;font-size:.75rem;"
+                                    onclick="return confirm('Bu hasat kaydını silmek istiyor musunuz?')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7">
+                        <div class="empty-state">
+                            <i class="fas fa-seedling"></i>
+                            Henüz hasat kaydı yok.
+                        </div>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ─── GİDER TAB ─── -->
+<div id="tab-gider" class="tab-panel">
+    <!-- Gider ekleme formu -->
+    <div class="add-card">
+        <div class="add-card-title"><i class="fas fa-plus-circle me-1" style="color:#dc2626;"></i> Gider Ekle</div>
+        <form method="post" action="{% url 'expense_add' field.pk %}">
+            {% csrf_token %}
+            <div class="fg3 mb-2">
+                <div>
+                    <label class="form-label">Tarih</label>
+                    <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                </div>
+                <div>
+                    <label class="form-label">Kategori</label>
+                    <select name="category" class="form-select" required>
+                        {% for val, label in expense_categories %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Tutar (₺)</label>
+                    <input type="text" inputmode="decimal" name="amount" class="form-control" placeholder="0.00" required>
+                </div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Açıklama</label>
+                <input type="text" name="description" class="form-control" placeholder="Gider açıklaması…">
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+                <button type="submit" class="btn-danger-soft" style="padding:9px 18px;font-size:.87rem;font-weight:600;">
+                    <i class="fas fa-save"></i> Kaydet
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Gider tablosu -->
+    <div class="surface">
+        <div class="card-header-bar">
+            <div class="ch-title"><i class="fas fa-list me-2" style="color:#dc2626;"></i>Gider Geçmişi</div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="dt">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Kategori</th>
+                        <th>Tutar</th>
+                        <th>Açıklama</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in expenses %}
+                    <tr>
+                        <td style="font-size:.82rem;color:var(--sub);">{{ e.date|date:"d.m.Y" }}</td>
+                        <td>
+                            <span class="bp cat-{{ e.category }}">{{ e.get_category_display }}</span>
+                        </td>
+                        <td><strong style="color:#dc2626;">₺{{ e.amount|floatformat:2 }}</strong></td>
+                        <td style="color:var(--sub);font-size:.82rem;">{{ e.description|default:'—' }}</td>
+                        <td>
+                            <form method="post" action="{% url 'expense_delete' field.pk e.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-danger-soft" style="padding:5px 10px;font-size:.75rem;"
+                                    onclick="return confirm('Bu gider kaydını silmek istiyor musunuz?')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">
+                        <div class="empty-state">
+                            <i class="fas fa-receipt"></i>
+                            Henüz gider kaydı yok.
+                        </div>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function switchTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+}
+</script>
+{% endblock %}
