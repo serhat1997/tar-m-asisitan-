@@ -11,4 +11,6 @@ urlpatterns = [
     path('<int:pk>/hasat/<int:hpk>/sil/', views.harvest_delete, name='harvest_delete'),
     path('<int:pk>/gider/ekle/', views.expense_add, name='expense_add'),
     path('<int:pk>/gider/<int:epk>/sil/', views.expense_delete, name='expense_delete'),
+    path('<int:pk>/arazi/ekle/', views.land_transaction_add, name='land_transaction_add'),
+    path('<int:pk>/arazi/<int:lpk>/sil/', views.land_transaction_delete, name='land_transaction_delete'),
 ]

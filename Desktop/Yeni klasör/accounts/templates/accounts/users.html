@@ -13,6 +13,12 @@
     .u-row { display: flex; align-items: center; gap: 10px; }
     .you-badge { font-size: .68rem; font-weight: 700; background: var(--border); color: var(--sub); padding: 2px 7px; border-radius: 999px; margin-left: 5px; }
     .empty-state { text-align:center; padding:60px 20px; color:var(--sub); }
+    .btn-pw { background:rgba(99,102,241,.1); color:#4f46e5; border:1px solid rgba(99,102,241,.25); border-radius:7px; padding:6px 11px; font-size:.78rem; font-weight:600; cursor:pointer; transition:.15s; }
+    .btn-pw:hover { background:rgba(99,102,241,.2); }
+    /* Password modal */
+    .pw-modal .modal-header { background:linear-gradient(135deg,#312e81,#4338ca); }
+    .pw-wrap-m { position:relative; }
+    .pw-eye-m { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:#9ca3af; cursor:pointer; }
 </style>
 {% endblock %}
 
@@ -85,6 +91,10 @@
                                 </button>
                                 {% endif %}
                             </form>
+                            <button type="button" class="btn-pw"
+                                onclick="openPwModal('{% url 'user_change_password_admin' u.pk %}', '{{ u.username }}')">
+                                <i class="fas fa-key"></i> Şifre
+                            </button>
                             <form method="post" action="{% url 'user_delete_admin' u.pk %}" style="display:inline;">
                                 {% csrf_token %}
                                 <button type="submit" class="btn-danger-soft"
@@ -105,4 +115,69 @@
         </table>
     </div>
 </div>
+
+<!-- ─── Şifre Değiştir Modal ─── -->
+<div class="modal fade pw-modal" id="pwModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
+        <div class="modal-content" style="border:none;border-radius:16px;overflow:hidden;">
+            <div class="modal-header">
+                <h6 class="modal-title text-white fw-bold">
+                    <i class="fas fa-key me-2"></i>Şifre Değiştir — <span id="pwModalUser"></span>
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:24px 28px 28px;">
+                <form method="post" id="pwForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label style="font-size:.82rem;font-weight:600;color:#374151;margin-bottom:5px;display:block;">
+                            <i class="fas fa-lock me-1" style="color:#4f46e5;"></i> Yeni Şifre
+                        </label>
+                        <div class="pw-wrap-m">
+                            <input type="password" name="new_password" id="pwInput1" required minlength="6"
+                                class="form-control" placeholder="En az 6 karakter">
+                            <button type="button" class="pw-eye-m" onclick="togglePwM('pwInput1',this)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label style="font-size:.82rem;font-weight:600;color:#374151;margin-bottom:5px;display:block;">
+                            <i class="fas fa-lock me-1" style="color:#4f46e5;"></i> Şifre Tekrarı
+                        </label>
+                        <div class="pw-wrap-m">
+                            <input type="password" name="new_password2" id="pwInput2" required
+                                class="form-control" placeholder="Şifreyi tekrar girin">
+                            <button type="button" class="pw-eye-m" onclick="togglePwM('pwInput2',this)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit"
+                        style="background:linear-gradient(135deg,#312e81,#4338ca);border:none;border-radius:10px;padding:11px;color:#fff;font-weight:700;font-size:.95rem;cursor:pointer;width:100%;">
+                        <i class="fas fa-save me-2"></i> Şifreyi Güncelle
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openPwModal(url, username) {
+    document.getElementById('pwForm').action = url;
+    document.getElementById('pwModalUser').textContent = username;
+    document.getElementById('pwInput1').value = '';
+    document.getElementById('pwInput2').value = '';
+    new bootstrap.Modal(document.getElementById('pwModal')).show();
+}
+function togglePwM(id, btn) {
+    const inp = document.getElementById(id);
+    const icon = btn.querySelector('i');
+    if (inp.type === 'password') { inp.type = 'text'; icon.className = 'fas fa-eye-slash'; }
+    else { inp.type = 'password'; icon.className = 'fas fa-eye'; }
+}
+</script>
 {% endblock %}

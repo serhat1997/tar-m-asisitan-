@@ -4,13 +4,72 @@ from django.contrib import messages
 from decimal import Decimal, InvalidOperation
 import datetime
 
-from .models import Field, HarvestEntry, FieldExpense, PRODUCT_CHOICES, UNIT_CHOICES, EXPENSE_CATEGORIES
+from .models import Field, HarvestEntry, FieldExpense, LandTransaction, PRODUCT_CHOICES, UNIT_CHOICES, EXPENSE_CATEGORIES
+
+
+def _land_stats(field):
+    """Compute land profitability stats for a field. Returns a dict."""
+    txns = list(field.land_transactions.all())
+    purchases = [t for t in txns if t.transaction_type == 'alis']
+    sales     = [t for t in txns if t.transaction_type == 'satis']
+
+    total_purchase_area = sum(t.area_decare for t in purchases) or Decimal('0')
+    total_purchase_cost = sum(t.net_amount   for t in purchases) or Decimal('0')  # includes fees
+    avg_cost_per_dec    = (total_purchase_cost / total_purchase_area) if total_purchase_area else Decimal('0')
+
+    total_sale_area    = sum(t.area_decare for t in sales) or Decimal('0')
+    total_sale_revenue = sum(t.net_amount  for t in sales) or Decimal('0')  # minus fees
+    avg_sale_per_dec   = (total_sale_revenue / total_sale_area) if total_sale_area else Decimal('0')
+
+    # Proportional purchase cost for the sold area
+    prop_purchase_cost = avg_cost_per_dec * total_sale_area
+    land_profit        = total_sale_revenue - prop_purchase_cost
+    land_profit_per_dec = (land_profit / total_sale_area) if total_sale_area else Decimal('0')
+    land_roi = ((land_profit / prop_purchase_cost) * 100) if prop_purchase_cost else Decimal('0')
+
+    # Annotate each sale with per-sale profit
+    for s in sales:
+        s.profit_per_dec = s.effective_price_per_decare - avg_cost_per_dec
+        s.total_profit   = s.profit_per_dec * s.area_decare
+        s.roi_pct        = ((s.profit_per_dec / avg_cost_per_dec) * 100) if avg_cost_per_dec else Decimal('0')
+        s.is_profit      = s.profit_per_dec >= 0
+
+    return {
+        'purchases': purchases,
+        'sales': sales,
+        'total_purchase_area': total_purchase_area,
+        'total_purchase_cost': total_purchase_cost,
+        'avg_cost_per_dec': avg_cost_per_dec,
+        'total_sale_area': total_sale_area,
+        'total_sale_revenue': total_sale_revenue,
+        'avg_sale_per_dec': avg_sale_per_dec,
+        'land_profit': land_profit,
+        'land_profit_per_dec': land_profit_per_dec,
+        'land_roi': land_roi,
+        'has_purchase': bool(purchases),
+        'has_sale': bool(sales),
+    }
 
 
 @login_required
 def field_list(request):
-    fields = Field.objects.prefetch_related('harvests', 'expenses').all()
-    return render(request, 'fields/field_list.html', {'fields': fields})
+    fields = Field.objects.prefetch_related('harvests', 'expenses', 'land_transactions').all()
+    field_data = []
+    for f in fields:
+        ls = _land_stats(f)
+        agri_net = f.total_harvest_revenue - f.total_expenses
+        agri_per_dec = (agri_net / f.area) if f.area else Decimal('0')
+        field_data.append({
+            'field': f,
+            'agri_net': agri_net,
+            'agri_per_dec': agri_per_dec,
+            'avg_cost_per_dec': ls['avg_cost_per_dec'],
+            'avg_sale_per_dec': ls['avg_sale_per_dec'],
+            'land_profit_per_dec': ls['land_profit_per_dec'],
+            'has_purchase': ls['has_purchase'],
+            'has_sale': ls['has_sale'],
+        })
+    return render(request, 'fields/field_list.html', {'field_data': field_data})
 
 
 @login_required
@@ -41,18 +100,24 @@ def field_detail(request, pk):
     expenses = field.expenses.all()
     total_revenue = sum(h.amount for h in harvests)
     total_expense = sum(e.amount for e in expenses)
-    net = total_revenue - total_expense
+    agri_net = total_revenue - total_expense
+    agri_net_per_dec = (agri_net / field.area) if field.area else Decimal('0')
+
+    ls = _land_stats(field)
+
     ctx = {
         'field': field,
         'harvests': harvests,
         'expenses': expenses,
         'total_revenue': total_revenue,
         'total_expense': total_expense,
-        'net': net,
+        'agri_net': agri_net,
+        'agri_net_per_dec': agri_net_per_dec,
         'product_choices': PRODUCT_CHOICES,
         'unit_choices': UNIT_CHOICES,
         'expense_categories': EXPENSE_CATEGORIES,
         'today': datetime.date.today().isoformat(),
+        **ls,
     }
     return render(request, 'fields/field_detail.html', ctx)
 
@@ -97,15 +162,15 @@ def field_delete(request, pk):
 def harvest_add(request, pk):
     field = get_object_or_404(Field, pk=pk)
     if request.method == 'POST':
-        date_str = request.POST.get('date', '').strip()
-        product = request.POST.get('product', '').strip()
-        quantity = request.POST.get('quantity', '').strip().replace(',', '.')
-        unit = request.POST.get('unit', 'kg').strip()
+        date_str  = request.POST.get('date', '').strip()
+        product   = request.POST.get('product', '').strip()
+        quantity  = request.POST.get('quantity', '').strip().replace(',', '.')
+        unit      = request.POST.get('unit', 'kg').strip()
         unit_price = request.POST.get('unit_price', '0').strip().replace(',', '.')
-        notes = request.POST.get('notes', '').strip()
+        notes     = request.POST.get('notes', '').strip()
         try:
-            date_val = datetime.date.fromisoformat(date_str)
-            qty_val = Decimal(quantity)
+            date_val  = datetime.date.fromisoformat(date_str)
+            qty_val   = Decimal(quantity)
             price_val = Decimal(unit_price) if unit_price else Decimal('0')
         except (ValueError, InvalidOperation):
             messages.error(request, 'Geçersiz tarih veya miktar.')
@@ -122,12 +187,12 @@ def harvest_add(request, pk):
 def expense_add(request, pk):
     field = get_object_or_404(Field, pk=pk)
     if request.method == 'POST':
-        date_str = request.POST.get('date', '').strip()
-        category = request.POST.get('category', '').strip()
-        amount = request.POST.get('amount', '').strip().replace(',', '.')
+        date_str    = request.POST.get('date', '').strip()
+        category    = request.POST.get('category', '').strip()
+        amount      = request.POST.get('amount', '').strip().replace(',', '.')
         description = request.POST.get('description', '').strip()
         try:
-            date_val = datetime.date.fromisoformat(date_str)
+            date_val   = datetime.date.fromisoformat(date_str)
             amount_val = Decimal(amount)
         except (ValueError, InvalidOperation):
             messages.error(request, 'Geçersiz tarih veya tutar.')
@@ -155,4 +220,52 @@ def expense_delete(request, pk, epk):
     if request.method == 'POST':
         expense.delete()
         messages.success(request, 'Gider kaydı silindi.')
+    return redirect('field_detail', pk=pk)
+
+
+@login_required
+def land_transaction_add(request, pk):
+    field = get_object_or_404(Field, pk=pk)
+    if request.method == 'POST':
+        tx_type      = request.POST.get('transaction_type', '').strip()
+        date_str     = request.POST.get('date', '').strip()
+        area         = request.POST.get('area_decare', '').strip().replace(',', '.')
+        price        = request.POST.get('price_per_decare', '').strip().replace(',', '.')
+        add_costs    = request.POST.get('additional_costs', '0').strip().replace(',', '.')
+        counterparty = request.POST.get('counterparty', '').strip()
+        deed_no      = request.POST.get('deed_no', '').strip()
+        notes        = request.POST.get('notes', '').strip()
+        try:
+            date_val  = datetime.date.fromisoformat(date_str)
+            area_val  = Decimal(area)
+            price_val = Decimal(price)
+            costs_val = Decimal(add_costs) if add_costs else Decimal('0')
+        except (ValueError, InvalidOperation):
+            messages.error(request, 'Geçersiz tarih, alan veya fiyat değeri.')
+            return redirect('field_detail', pk=pk)
+        if tx_type not in ('alis', 'satis'):
+            messages.error(request, 'İşlem türü seçiniz.')
+            return redirect('field_detail', pk=pk)
+        LandTransaction.objects.create(
+            field=field,
+            transaction_type=tx_type,
+            date=date_val,
+            area_decare=area_val,
+            price_per_decare=price_val,
+            additional_costs=costs_val,
+            counterparty=counterparty,
+            deed_no=deed_no,
+            notes=notes,
+        )
+        label = 'Alış' if tx_type == 'alis' else 'Satış'
+        messages.success(request, f'Arazi {label} kaydı eklendi.')
+    return redirect('field_detail', pk=pk)
+
+
+@login_required
+def land_transaction_delete(request, pk, lpk):
+    txn = get_object_or_404(LandTransaction, pk=lpk, field__pk=pk)
+    if request.method == 'POST':
+        txn.delete()
+        messages.success(request, 'Arazi işlem kaydı silindi.')
     return redirect('field_detail', pk=pk)

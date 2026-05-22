@@ -13,6 +13,7 @@ urlpatterns = [
     path('iletisim/', views.contact_view, name='contact'),
     path('kullanicilar/', views.user_list_view, name='user_list'),
     path('kullanicilar/<int:user_id>/askiya-al/', views.user_suspend_view, name='user_suspend'),
+    path('kullanicilar/<int:user_id>/sifre-degistir/', views.user_change_password_admin_view, name='user_change_password_admin'),
     path('kullanicilar/<int:user_id>/sil/', views.user_delete_admin_view, name='user_delete_admin'),
     path('hesabim/sil/', views.account_delete_view, name='account_delete'),
 ]

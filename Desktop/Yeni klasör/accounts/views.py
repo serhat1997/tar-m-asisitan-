@@ -83,6 +83,25 @@ def user_suspend_view(request, user_id):
     return redirect('user_list')
 
 @login_required
+def user_change_password_admin_view(request, user_id):
+    if not request.user.is_staff:
+        return redirect('dashboard')
+    user = get_object_or_404(User, id=user_id)
+    if request.method == 'POST':
+        password = request.POST.get('new_password', '')
+        password2 = request.POST.get('new_password2', '')
+        if len(password) < 6:
+            messages.error(request, f'"{user.username}" için şifre en az 6 karakter olmalıdır.')
+        elif password != password2:
+            messages.error(request, 'Şifreler eşleşmiyor.')
+        else:
+            user.set_password(password)
+            user.save()
+            messages.success(request, f'"{user.username}" kullanıcısının şifresi başarıyla güncellendi.')
+    return redirect('user_list')
+
+
+@login_required
 def user_delete_admin_view(request, user_id):
     if not request.user.is_staff:
         return redirect('dashboard')
