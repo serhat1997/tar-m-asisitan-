@@ -5,7 +5,8 @@
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(python manage.py check)",
       "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Serhat\\\\Desktop\\\\cari\\\\fields\\\\templates\\\\fields\")",
-      "Bash(python manage.py migrate)"
+      "Bash(python manage.py migrate)",
+      "Bash(python manage.py makemigrations accounts)"
     ]
   }
 }

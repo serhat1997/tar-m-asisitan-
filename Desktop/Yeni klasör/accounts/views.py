@@ -3,6 +3,9 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.mail import send_mail
+from django.conf import settings as django_settings
+from .models import PasswordResetCode, UserProfile
 
 def register_view(request):
     if request.method == 'POST':
@@ -92,6 +95,111 @@ def user_delete_admin_view(request, user_id):
         else:
             messages.error(request, 'Kendi hesabınızı bu sayfadan silemezsiniz.')
     return redirect('user_list')
+
+def _find_user_by_email_or_phone(value):
+    value = value.strip()
+    user = User.objects.filter(email__iexact=value).first()
+    if user:
+        return user, 'email'
+    profile = UserProfile.objects.filter(phone=value).first()
+    if profile:
+        return profile.user, 'phone'
+    return None, None
+
+
+def _send_reset_code(user, method, reset_obj):
+    code = reset_obj.code
+    if method == 'email':
+        send_mail(
+            subject='Şifre Sıfırlama Kodunuz',
+            message=(
+                f'Merhaba {user.username},\n\n'
+                f'Şifre sıfırlama kodunuz: {code}\n\n'
+                f'Bu kod 10 dakika geçerlidir. Eğer bu isteği siz yapmadıysanız dikkate almayınız.'
+            ),
+            from_email=django_settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+    else:
+        # SMS entegrasyonu yapılandırılmamış; geliştirme ortamında konsola yazdırılır.
+        profile = getattr(user, 'profile', None)
+        phone = profile.phone if profile else '—'
+        print(f"\n{'='*40}\nSMS (simülasyon) → {phone}\nKod: {code}\n{'='*40}\n")
+
+
+def forgot_password_view(request):
+    if request.method == 'POST':
+        value = request.POST.get('contact', '').strip()
+        if not value:
+            return render(request, 'accounts/forgot_password.html',
+                          {'step': 1, 'error': 'Lütfen e-posta veya telefon numarası girin.'})
+
+        user, method = _find_user_by_email_or_phone(value)
+        if not user:
+            return render(request, 'accounts/forgot_password.html',
+                          {'step': 1, 'error': 'Bu bilgiye ait kayıtlı hesap bulunamadı.'})
+
+        reset_obj = PasswordResetCode.create_for(user)
+        _send_reset_code(user, method, reset_obj)
+
+        masked = value[:2] + '*' * (len(value) - 4) + value[-2:] if len(value) > 4 else '****'
+        return render(request, 'accounts/forgot_password.html', {
+            'step': 2,
+            'token': reset_obj.token,
+            'masked': masked,
+            'method': method,
+        })
+
+    return render(request, 'accounts/forgot_password.html', {'step': 1})
+
+
+def verify_reset_code_view(request, token):
+    reset_obj = get_object_or_404(PasswordResetCode, token=token)
+
+    if not reset_obj.is_valid():
+        return render(request, 'accounts/forgot_password.html',
+                      {'step': 1, 'error': 'Kodun süresi dolmuş. Lütfen tekrar deneyin.'})
+
+    if request.method == 'POST':
+        entered = request.POST.get('code', '').strip()
+        if entered == reset_obj.code:
+            return redirect('reset_password', token=token)
+        return render(request, 'accounts/forgot_password.html', {
+            'step': 2, 'token': token,
+            'error': 'Girdiğiniz kod hatalı.',
+        })
+
+    return render(request, 'accounts/forgot_password.html', {'step': 2, 'token': token})
+
+
+def reset_password_view(request, token):
+    reset_obj = get_object_or_404(PasswordResetCode, token=token)
+
+    if not reset_obj.is_valid():
+        return render(request, 'accounts/forgot_password.html',
+                      {'step': 1, 'error': 'Bağlantı süresi dolmuş. Lütfen tekrar deneyin.'})
+
+    if request.method == 'POST':
+        password = request.POST.get('password', '')
+        password2 = request.POST.get('password2', '')
+        if len(password) < 6:
+            return render(request, 'accounts/forgot_password.html',
+                          {'step': 3, 'token': token, 'error': 'Şifre en az 6 karakter olmalıdır.'})
+        if password != password2:
+            return render(request, 'accounts/forgot_password.html',
+                          {'step': 3, 'token': token, 'error': 'Şifreler eşleşmiyor.'})
+
+        user = reset_obj.user
+        user.set_password(password)
+        user.save()
+        reset_obj.is_used = True
+        reset_obj.save()
+        messages.success(request, 'Şifreniz başarıyla güncellendi. Giriş yapabilirsiniz.')
+        return redirect('login')
+
+    return render(request, 'accounts/forgot_password.html', {'step': 3, 'token': token})
+
 
 @login_required
 def account_delete_view(request):
