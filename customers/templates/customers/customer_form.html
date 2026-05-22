@@ -1,0 +1,47 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Yeni Cari{% endblock %}
+{% block page_title %}Yeni Cari Ekle{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-wrap { max-width: 620px; }
+    .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
+    .form-card-title { font-size: 1rem; font-weight: 700; margin-bottom: 20px; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
+    @media (max-width:640px) { .field-row { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-wrap">
+    <div class="form-card">
+        <div class="form-card-title"><i class="fas fa-user-plus me-2" style="color:var(--primary-light);"></i>Yeni Cari Ekle</div>
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">Ad Soyad / Firma Adı *</label>
+                <input type="text" name="name" class="form-control" required placeholder="Cari adını giriniz">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Adres</label>
+                <textarea name="address" class="form-control" rows="2" placeholder="Adres bilgisi"></textarea>
+            </div>
+            <div class="field-row mb-3">
+                <div>
+                    <label class="form-label">Telefon</label>
+                    <input type="text" name="phone" class="form-control" placeholder="05xx xxx xxxx">
+                </div>
+                <div>
+                    <label class="form-label">E-posta</label>
+                    <input type="email" name="email" class="form-control" placeholder="ornek@mail.com">
+                </div>
+            </div>
+            <div class="form-actions">
+                <a href="{% url 'customer_list' %}" class="btn-o"><i class="fas fa-times"></i> İptal</a>
+                <button type="submit" class="btn-g"><i class="fas fa-save"></i> Kaydet</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

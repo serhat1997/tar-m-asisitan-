@@ -1,0 +1,81 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Ekstre{% endblock %}
+{% block page_title %}Ekstre{% endblock %}
+
+{% block topbar_right %}
+<a href="{% url 'transaction_create' %}" class="btn-g"><i class="fas fa-plus"></i> İşlem Ekle</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .amount-pos { color: #16a34a; font-weight: 700; }
+    .amount-neg { color: #dc2626; font-weight: 700; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--sub); }
+    .empty-state i { font-size: 3rem; margin-bottom: 14px; opacity: .3; display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="surface">
+    <div class="card-header-bar">
+        <div>
+            <div class="ch-title"><i class="fas fa-file-alt me-2" style="color:var(--primary-light);"></i>Tüm İşlemler</div>
+            <div style="font-size:.77rem;color:var(--sub);margin-top:2px;">{{ transactions|length }} kayıt listeleniyor</div>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn-o" style="padding:7px 14px;font-size:.82rem;">
+            <i class="fas fa-arrow-left"></i> Geri
+        </a>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="dt">
+            <thead>
+                <tr>
+                    <th>Tarih</th>
+                    <th>Cari</th>
+                    <th>Tür</th>
+                    <th>Ürün</th>
+                    <th>Miktar</th>
+                    <th>Birim Fiyat</th>
+                    <th>Toplam</th>
+                    <th>Açıklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in transactions %}
+                <tr>
+                    <td style="font-size:.82rem;color:var(--sub);">{{ t.date }}</td>
+                    <td><strong>{{ t.customer.name }}</strong></td>
+                    <td>
+                        {% if t.type == 'sale' %}
+                            <span class="bp bp-sale"><i class="fas fa-arrow-up"></i> Satış</span>
+                        {% else %}
+                            <span class="bp bp-purchase"><i class="fas fa-arrow-down"></i> Alış</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ t.get_product_display }}</td>
+                    <td>{{ t.quantity }} {{ t.get_unit_display }}</td>
+                    <td>₺{{ t.formatted_unit_price }}</td>
+                    <td>
+                        {% if t.type == 'sale' %}
+                            <span class="amount-pos">₺{{ t.formatted_amount }}</span>
+                        {% else %}
+                            <span class="amount-neg">₺{{ t.formatted_amount }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="color:var(--sub);font-size:.82rem;">{{ t.description|default:'—'|truncatewords:8 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            Henüz işlem bulunmamaktadır.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
