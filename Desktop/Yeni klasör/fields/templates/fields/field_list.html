@@ -106,12 +106,12 @@
         <!-- Agricultural stats -->
         <div class="field-stats">
             <div class="stat-item">
-                <div class="stat-label">Hasat Geliri</div>
-                <div class="stat-value stat-green">₺{{ f.total_harvest_revenue|tr_num }}</div>
+                <div class="stat-label">Toplam Gelir</div>
+                <div class="stat-value stat-green">₺{{ d.total_rev|tr_num }}</div>
             </div>
             <div class="stat-item">
-                <div class="stat-label">Gider</div>
-                <div class="stat-value stat-red">₺{{ f.total_expenses|tr_num }}</div>
+                <div class="stat-label">Toplam Gider</div>
+                <div class="stat-value stat-red">₺{{ d.total_exp|tr_num }}</div>
             </div>
             <div class="stat-item">
                 <div class="stat-label">Tarımsal Kâr/Dön.</div>

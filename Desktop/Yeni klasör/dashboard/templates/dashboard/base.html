@@ -264,6 +264,9 @@
         <a href="{% url 'field_list' %}" class="sb-item {% if cur == 'field_list' or cur == 'field_detail' or cur == 'field_create' or cur == 'field_edit' %}active{% endif %}">
             <i class="fas fa-tractor"></i> Tarlalarım
         </a>
+        <a href="{% url 'inventory_list' %}" class="sb-item {% if cur == 'inventory_list' or cur == 'inventory_create' or cur == 'inventory_edit' %}active{% endif %}">
+            <i class="fas fa-boxes"></i> Envanterlerim
+        </a>
         {% if request.user.is_staff %}
         <hr class="sb-divider">
         <div class="sb-section">Yönetim</div>

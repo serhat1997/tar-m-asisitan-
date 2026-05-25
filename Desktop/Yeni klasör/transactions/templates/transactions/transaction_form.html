@@ -128,7 +128,19 @@
                 <div class="total-preview-val" id="totalVal">—</div>
             </div>
 
-            <div class="field-2 mb-3">
+            <div class="field-3 mb-3">
+                <div>
+                    <label class="form-label">
+                        <i class="fas fa-seedling me-1" style="color:var(--primary-light);"></i>
+                        Tarla <span style="font-weight:400;opacity:.6;">(isteğe bağlı)</span>
+                    </label>
+                    <select name="field" class="form-select">
+                        <option value="">— Tarla seçilmeyecek —</option>
+                        {% for f in fields %}
+                        <option value="{{ f.pk }}">{{ f.name }}{% if f.crop_type %} · {{ f.crop_type }}{% endif %} ({{ f.area }} dön.)</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div>
                     <label class="form-label">Referans / Fiş No <span style="font-weight:400;opacity:.6;">(isteğe bağlı)</span></label>
                     <input type="text" name="reference_no" class="form-control" placeholder="Fiş no, fatura no…">

@@ -122,7 +122,10 @@
         <div class="kpi-value {% if agri_net_per_dec >= 0 %}kpi-green{% else %}kpi-red{% endif %}">
             ₺{{ agri_net_per_dec|tr_num }}
         </div>
-        <div class="kpi-sub">Net: ₺{{ agri_net|tr_num }}</div>
+        <div class="kpi-sub">
+            Gelir ₺{{ total_revenue|tr_num }} · Gider ₺{{ total_expense|tr_num }}
+            {% if linked_txns %}· <span style="color:#7c3aed;">{{ linked_txns|length }} bağlı işlem dahil</span>{% endif %}
+        </div>
     </div>
 </div>
 
@@ -139,6 +142,10 @@
     <button class="tab-btn" onclick="switchTab('arazi', this)">
         <i class="fas fa-landmark me-1"></i> Arazi İşlemleri & Karlılık
         <span style="background:rgba(37,99,235,.1);color:#2563eb;border-radius:999px;padding:1px 7px;font-size:.72rem;margin-left:5px;">{{ purchases|length|add:sales|length }}</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('bagliislem', this)">
+        <i class="fas fa-link me-1"></i> Bağlı İşlemler
+        <span style="background:rgba(139,92,246,.1);color:#7c3aed;border-radius:999px;padding:1px 7px;font-size:.72rem;margin-left:5px;">{{ linked_txns|length }}</span>
     </button>
 </div>
 
@@ -479,6 +486,98 @@
                         </td>
                     </tr>
                     {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ─── BAĞLI İŞLEMLER TAB ─── -->
+<div id="tab-bagliislem" class="tab-panel">
+
+    {% if linked_txns %}
+    <!-- Özet bar -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
+        <div style="background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:12px;">
+            <div style="width:38px;height:38px;border-radius:10px;background:rgba(22,163,74,.12);display:flex;align-items:center;justify-content:center;color:#16a34a;font-size:1rem;flex-shrink:0;">
+                <i class="fas fa-arrow-up"></i>
+            </div>
+            <div>
+                <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);">Bağlı Satış Geliri</div>
+                <div style="font-size:1.1rem;font-weight:800;color:#16a34a;">₺{{ linked_revenue|tr_num }}</div>
+                <div style="font-size:.72rem;color:var(--sub);">{{ linked_sales|length }} satış işlemi</div>
+            </div>
+        </div>
+        <div style="background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.15);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:12px;">
+            <div style="width:38px;height:38px;border-radius:10px;background:rgba(220,38,38,.1);display:flex;align-items:center;justify-content:center;color:#dc2626;font-size:1rem;flex-shrink:0;">
+                <i class="fas fa-arrow-down"></i>
+            </div>
+            <div>
+                <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);">Bağlı Alış Gideri</div>
+                <div style="font-size:1.1rem;font-weight:800;color:#dc2626;">₺{{ linked_expense|tr_num }}</div>
+                <div style="font-size:.72rem;color:var(--sub);">{{ linked_purchases|length }} alış işlemi</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- İşlemler tablosu -->
+    <div class="surface">
+        <div class="card-header-bar">
+            <div class="ch-title">
+                <i class="fas fa-link me-2" style="color:#7c3aed;"></i>Tarla Bağlantılı Cari İşlemler
+            </div>
+            <div style="font-size:.77rem;color:var(--sub);">İşlemler sekmesinde tarla seçilerek eklenen kayıtlar</div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="dt">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Tür</th>
+                        <th>Cari</th>
+                        <th>Ürün</th>
+                        <th>Miktar</th>
+                        <th>Birim Fiyat</th>
+                        <th>Tutar</th>
+                        <th>Ref. No</th>
+                        <th>Açıklama</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in linked_txns %}
+                    <tr>
+                        <td style="font-size:.82rem;color:var(--sub);">{{ t.date|date:"d.m.Y" }}</td>
+                        <td>
+                            {% if t.type == 'sale' %}
+                            <span class="bp bp-sale"><i class="fas fa-arrow-up me-1"></i>Satış</span>
+                            {% else %}
+                            <span class="bp bp-purchase"><i class="fas fa-arrow-down me-1"></i>Alış</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-weight:600;">{{ t.customer.name }}</td>
+                        <td><span class="bp" style="background:rgba(139,92,246,.08);color:#7c3aed;">{{ t.get_product_display }}</span></td>
+                        <td style="color:var(--sub);">{{ t.quantity }} {{ t.get_unit_display }}</td>
+                        <td style="color:var(--sub);">₺{{ t.unit_price|tr_num }}</td>
+                        <td>
+                            {% if t.type == 'sale' %}
+                            <strong style="color:#16a34a;">+₺{{ t.amount|tr_num }}</strong>
+                            {% else %}
+                            <strong style="color:#dc2626;">−₺{{ t.amount|tr_num }}</strong>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:.8rem;color:var(--sub);">{{ t.reference_no|default:'—' }}</td>
+                        <td style="font-size:.8rem;color:var(--sub);">{{ t.description|default:'—' }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="9">
+                        <div class="empty-state">
+                            <i class="fas fa-link"></i>
+                            Bu tarlaya bağlı cari işlem yok.<br>
+                            <span style="font-size:.78rem;">İşlemler → Yeni İşlem eklerken Tarla seçeneğinden bu tarlayı seçin.</span>
+                        </div>
+                    </td></tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>

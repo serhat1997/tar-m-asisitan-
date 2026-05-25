@@ -25,4 +25,5 @@ urlpatterns = [
     path('dashboard/', include('dashboard.urls')),
     path('', include('dashboard.urls')),  # root to dashboard
     path('tarlalar/', include('fields.urls')),
+    path('envanter/', include('inventory.urls')),
 ]

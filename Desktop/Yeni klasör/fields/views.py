@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 import datetime
 
 from .models import Field, HarvestEntry, FieldExpense, LandTransaction, PRODUCT_CHOICES, UNIT_CHOICES, EXPENSE_CATEGORIES
+from transactions.models import Transaction as TxModel
 
 
 def _land_stats(field):
@@ -53,14 +54,27 @@ def _land_stats(field):
 
 @login_required
 def field_list(request):
-    fields = Field.objects.prefetch_related('harvests', 'expenses', 'land_transactions').all()
+    fields = Field.objects.prefetch_related(
+        'harvests', 'expenses', 'land_transactions', 'transactions'
+    ).all()
     field_data = []
     for f in fields:
         ls = _land_stats(f)
-        agri_net = f.total_harvest_revenue - f.total_expenses
+
+        harvest_rev = sum(h.amount for h in f.harvests.all())
+        tx_rev      = sum(t.amount for t in f.transactions.all() if t.type == 'sale')
+        total_rev   = harvest_rev + tx_rev
+
+        field_exp   = sum(e.amount for e in f.expenses.all())
+        tx_exp      = sum(t.amount for t in f.transactions.all() if t.type == 'purchase')
+        total_exp   = field_exp + tx_exp
+
+        agri_net     = total_rev - total_exp
         agri_per_dec = (agri_net / f.area) if f.area else Decimal('0')
         field_data.append({
             'field': f,
+            'total_rev': total_rev,
+            'total_exp': total_exp,
             'agri_net': agri_net,
             'agri_per_dec': agri_per_dec,
             'avg_cost_per_dec': ls['avg_cost_per_dec'],
@@ -98,9 +112,20 @@ def field_detail(request, pk):
     field = get_object_or_404(Field, pk=pk)
     harvests = field.harvests.all()
     expenses = field.expenses.all()
-    total_revenue = sum(h.amount for h in harvests)
-    total_expense = sum(e.amount for e in expenses)
-    agri_net = total_revenue - total_expense
+
+    # Bağlı işlemler (transactions sekmesinden tarla seçilerek girilmiş)
+    linked_txns     = list(field.transactions.select_related('customer').order_by('-date'))
+    linked_sales    = [t for t in linked_txns if t.type == 'sale']
+    linked_purchases = [t for t in linked_txns if t.type == 'purchase']
+    linked_revenue  = sum(t.amount for t in linked_sales)
+    linked_expense  = sum(t.amount for t in linked_purchases)
+
+    # Tarımsal toplamlar: hasat + bağlı satışlar → gelir; gider + bağlı alışlar → gider
+    harvest_revenue = sum(h.amount for h in harvests)
+    field_expenses  = sum(e.amount for e in expenses)
+    total_revenue   = harvest_revenue + linked_revenue
+    total_expense   = field_expenses + linked_expense
+    agri_net        = total_revenue - total_expense
     agri_net_per_dec = (agri_net / field.area) if field.area else Decimal('0')
 
     ls = _land_stats(field)
@@ -109,6 +134,13 @@ def field_detail(request, pk):
         'field': field,
         'harvests': harvests,
         'expenses': expenses,
+        'harvest_revenue': harvest_revenue,
+        'field_expenses': field_expenses,
+        'linked_txns': linked_txns,
+        'linked_sales': linked_sales,
+        'linked_purchases': linked_purchases,
+        'linked_revenue': linked_revenue,
+        'linked_expense': linked_expense,
         'total_revenue': total_revenue,
         'total_expense': total_expense,
         'agri_net': agri_net,

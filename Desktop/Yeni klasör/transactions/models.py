@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from customers.models import Customer
+from fields.models import Field
 
 class Transaction(models.Model):
     TRANSACTION_TYPES = [
@@ -27,6 +28,7 @@ class Transaction(models.Model):
     ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions')
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    field = models.ForeignKey(Field, on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions', verbose_name='Tarla')
     type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
     product = models.CharField(max_length=20, choices=SALE_PRODUCTS + PURCHASE_PRODUCTS)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)

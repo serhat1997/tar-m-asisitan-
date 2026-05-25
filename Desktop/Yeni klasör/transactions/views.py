@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from .models import Transaction
 from customers.models import Customer
+from fields.models import Field
 from decimal import Decimal
 
 @login_required
@@ -22,6 +23,8 @@ def transaction_create(request):
             return redirect('dashboard')
         
         reference_no = request.POST.get('reference_no', '').strip()
+        field_id = request.POST.get('field') or None
+        field_obj = Field.objects.filter(pk=field_id).first() if field_id else None
         Transaction.objects.create(
             user=request.user,
             customer=customer,
@@ -31,7 +34,8 @@ def transaction_create(request):
             unit=unit,
             unit_price=unit_price,
             reference_no=reference_no,
-            description=description
+            description=description,
+            field=field_obj,
         )
         return redirect('dashboard')
     
@@ -46,8 +50,10 @@ def transaction_create(request):
     if selected_type not in ['sale', 'purchase']:
         selected_type = ''
 
+    fields = Field.objects.all().order_by('name')
     return render(request, 'transactions/transaction_form.html', {
         'customers': customers,
+        'fields': fields,
         'selected_type': selected_type,
         'selected_product': selected_product,
     })
