@@ -13,11 +13,13 @@ class Transaction(models.Model):
         ('elma', 'Elma'),
         ('kiraz', 'Kiraz'),
         ('seftali', 'Şeftali'),
+        ('diger', 'Diğer'),
     ]
     PURCHASE_PRODUCTS = [
         ('gubre', 'Gübre'),
         ('fide', 'Fide'),
         ('boru', 'Boru'),
+        ('diger', 'Diğer'),
     ]
     UNIT_CHOICES = [
         ('adet', 'Adet'),

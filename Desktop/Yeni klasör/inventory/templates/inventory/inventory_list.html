@@ -147,6 +147,18 @@
                         {% if item.model_info %}
                         <div class="model-sub"><i class="fas fa-tag" style="font-size:.6rem;"></i> {{ item.model_info }}</div>
                         {% endif %}
+                        {% if item.source_transaction %}
+                        <div class="model-sub" style="color:#2563eb;">
+                            <i class="fas fa-link" style="font-size:.6rem;"></i>
+                            {{ item.source_transaction.customer.name }} · #{{ item.source_transaction.pk }}
+                        </div>
+                        {% endif %}
+                        {% if item.sale_transaction %}
+                        <div class="model-sub" style="color:#16a34a;">
+                            <i class="fas fa-receipt" style="font-size:.6rem;"></i>
+                            Satış → {{ item.sale_transaction.customer.name }}
+                        </div>
+                        {% endif %}
                         {% if item.notes %}
                         <div class="model-sub" style="font-style:italic;">{{ item.notes|truncatechars:40 }}</div>
                         {% endif %}
@@ -195,7 +207,14 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if item.is_sold %}
+                        {% if item.is_partial_sale %}
+                        <span class="bp" style="background:rgba(37,99,235,.1);color:#2563eb;">
+                            <i class="fas fa-adjust me-1" style="font-size:.7rem;"></i>Kısmen
+                        </span>
+                        <div style="font-size:.7rem;color:var(--sub);margin-top:2px;">
+                            {{ item.sale_quantity|floatformat:"-2" }}/{{ item.quantity|floatformat:"-2" }} {{ item.get_unit_display }}
+                        </div>
+                        {% elif item.is_sold %}
                         <span class="bp status-satildi"><i class="fas fa-check me-1"></i>Satıldı</span>
                         {% else %}
                         <span class="bp status-elde"><i class="fas fa-circle" style="font-size:.5rem;margin-right:4px;"></i>Elde</span>

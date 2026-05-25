@@ -151,6 +151,69 @@
                 </div>
             </div>
 
+            <!-- Satıştan envanter kalemi güncelle — sadece satış türünde görünür -->
+            <div id="invSaleToggleRow" style="display:none; margin-bottom:18px;">
+                <div style="background:rgba(37,99,235,.05); border:1.5px dashed rgba(37,99,235,.4); border-radius:12px; padding:14px 18px;">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;color:#1e3a8a;font-size:.88rem;margin:0;">
+                        <input type="checkbox" id="inv_link_sale" name="inv_link_sale" value="1" style="width:17px;height:17px;accent-color:#2563eb;">
+                        <i class="fas fa-boxes" style="color:#2563eb;"></i> Bu satışı bir <strong>Envanter</strong> kaleminden yap
+                    </label>
+                    <div id="invSaleSection" style="display:none; margin-top:14px; padding-top:14px; border-top:1px solid rgba(37,99,235,.2);">
+                        <div>
+                            <label class="form-label">Envanter Kalemi <span style="color:#dc2626;">*</span></label>
+                            <select name="inv_item_id" id="inv_item_id" class="form-select">
+                                <option value="">— Satışı yapılan envanter kalemini seçin —</option>
+                                {% for inv in inv_items %}
+                                <option value="{{ inv.pk }}"
+                                    data-qty="{{ inv.quantity }}"
+                                    data-unit="{{ inv.get_unit_display }}"
+                                    data-name="{{ inv.name }}">
+                                    {{ inv.name }}{% if inv.model_info %} · {{ inv.model_info }}{% endif %}
+                                    — {{ inv.quantity|floatformat:"-2" }} {{ inv.get_unit_display }}
+                                    (alış: ₺{{ inv.purchase_price }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div style="font-size:.75rem;color:var(--sub);margin-top:5px;">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Kaydedilince envanterdeki satış fiyatı, tarihi ve adedi güncellenir.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Envantere Ekle — sadece alış türünde görünür -->
+            <div id="invToggleRow" style="display:none; margin-bottom:18px;">
+                <div style="background:rgba(245,158,11,.05); border:1.5px dashed rgba(245,158,11,.45); border-radius:12px; padding:14px 18px;">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;color:#92400e;font-size:.88rem;margin:0;">
+                        <input type="checkbox" id="add_to_inventory" name="add_to_inventory" value="1" style="width:17px;height:17px;accent-color:#d97706;">
+                        <i class="fas fa-boxes" style="color:#d97706;"></i> Bu alışı <strong>Envanterlerim</strong> sekmesine de ekle
+                    </label>
+                    <div id="invSection" style="display:none; margin-top:14px; padding-top:14px; border-top:1px solid rgba(245,158,11,.25);">
+                        <div class="field-3">
+                            <div>
+                                <label class="form-label">Envanter Adı <span style="color:#dc2626;">*</span></label>
+                                <input type="text" name="inv_name" id="inv_name" class="form-control"
+                                    placeholder="ör. Traktör, 75'lik Boru, Sulama Pompası…">
+                            </div>
+                            <div>
+                                <label class="form-label">Kategori</label>
+                                <select name="inv_category" class="form-select">
+                                    {% for val, label in inv_categories %}
+                                    <option value="{{ val }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="form-label">Model / Marka <span style="font-weight:400;opacity:.6;">(isteğe bağlı)</span></label>
+                                <input type="text" name="inv_model" class="form-control" placeholder="ör. John Deere 5075E…">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="form-actions">
                 <a href="{% url 'dashboard' %}" class="btn-o"><i class="fas fa-times"></i> İptal</a>
                 <button type="submit" class="btn-g"><i class="fas fa-save"></i> Kaydet</button>
@@ -162,8 +225,8 @@
 
 {% block extra_js %}
 <script>
-    const saleOpts     = [{v:'cilek',l:'Çilek'},{v:'elma',l:'Elma'},{v:'kiraz',l:'Kiraz'},{v:'seftali',l:'Şeftali'}];
-    const purchaseOpts = [{v:'gubre',l:'Gübre'},{v:'fide',l:'Fide'},{v:'boru',l:'Boru'}];
+    const saleOpts     = [{v:'cilek',l:'Çilek'},{v:'elma',l:'Elma'},{v:'kiraz',l:'Kiraz'},{v:'seftali',l:'Şeftali'},{v:'diger',l:'Diğer'}];
+    const purchaseOpts = [{v:'gubre',l:'Gübre'},{v:'fide',l:'Fide'},{v:'boru',l:'Boru'},{v:'diger',l:'Diğer'}];
     const productSel   = document.getElementById('product');
     const qtyInp       = document.getElementById('quantity');
     const priceInp     = document.getElementById('unit_price');
@@ -220,7 +283,49 @@
         }
     }
 
-    document.querySelectorAll('input[name="type"]').forEach(r => r.addEventListener('change', fillProducts));
+    function updateInvToggle() {
+        const checked    = document.querySelector('input[name="type"]:checked');
+        const isPurchase = checked && checked.value === 'purchase';
+        const isSale     = checked && checked.value === 'sale';
+
+        document.getElementById('invToggleRow').style.display     = isPurchase ? 'block' : 'none';
+        document.getElementById('invSaleToggleRow').style.display = isSale     ? 'block' : 'none';
+
+        if (!isPurchase) {
+            document.getElementById('add_to_inventory').checked = false;
+            document.getElementById('invSection').style.display = 'none';
+        }
+        if (!isSale) {
+            document.getElementById('inv_link_sale').checked = false;
+            document.getElementById('invSaleSection').style.display = 'none';
+        }
+    }
+    document.getElementById('inv_link_sale').addEventListener('change', function() {
+        document.getElementById('invSaleSection').style.display = this.checked ? 'block' : 'none';
+    });
+    document.getElementById('inv_item_id').addEventListener('change', function() {
+        const opt = this.selectedOptions[0];
+        if (opt && opt.dataset.name) {
+            const descEl = document.querySelector('input[name="description"]');
+            if (descEl && !descEl.value) descEl.value = 'Envanter Satışı: ' + opt.dataset.name;
+        }
+    });
+    document.getElementById('add_to_inventory').addEventListener('change', function() {
+        document.getElementById('invSection').style.display = this.checked ? 'block' : 'none';
+        if (this.checked && !document.getElementById('inv_name').value) {
+            const sel = document.getElementById('product');
+            if (sel && sel.selectedOptions[0]) {
+                document.getElementById('inv_name').value = sel.selectedOptions[0].text === '— Önce tür seçin —' ? '' : sel.selectedOptions[0].text;
+            }
+        }
+    });
+    document.getElementById('product').addEventListener('change', function() {
+        const invCb = document.getElementById('add_to_inventory');
+        if (invCb && invCb.checked && !document.getElementById('inv_name').value && this.selectedOptions[0]) {
+            document.getElementById('inv_name').value = this.selectedOptions[0].text;
+        }
+    });
+    document.querySelectorAll('input[name="type"]').forEach(r => r.addEventListener('change', () => { fillProducts(); updateInvToggle(); }));
     qtyInp.addEventListener('input', updateTotal);
     qtyInp.addEventListener('blur',  () => { fmtNum(qtyInp); updateTotal(); });
     priceInp.addEventListener('input', updateTotal);
@@ -232,5 +337,6 @@
     });
 
     fillProducts();
+    updateInvToggle();
 </script>
 {% endblock %}

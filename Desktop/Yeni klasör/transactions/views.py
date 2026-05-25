@@ -5,6 +5,7 @@ from .models import Transaction
 from customers.models import Customer
 from fields.models import Field
 from decimal import Decimal
+import datetime
 
 @login_required
 def transaction_create(request):
@@ -25,7 +26,7 @@ def transaction_create(request):
         reference_no = request.POST.get('reference_no', '').strip()
         field_id = request.POST.get('field') or None
         field_obj = Field.objects.filter(pk=field_id).first() if field_id else None
-        Transaction.objects.create(
+        tx = Transaction.objects.create(
             user=request.user,
             customer=customer,
             type=type,
@@ -37,6 +38,41 @@ def transaction_create(request):
             description=description,
             field=field_obj,
         )
+
+        # Alış → envantere ekle
+        if request.POST.get('add_to_inventory') and type == 'purchase':
+            from inventory.models import InventoryItem
+            UNIT_MAP = {'m': 'metre', 'adet': 'adet', 'kg': 'kg', 'lt': 'lt', 'paket': 'paket'}
+            inv_name     = request.POST.get('inv_name', '').strip() or customer.name
+            inv_category = request.POST.get('inv_category', 'diger')
+            inv_model    = request.POST.get('inv_model', '').strip()
+            inv_unit     = UNIT_MAP.get(unit, 'adet')
+            InventoryItem.objects.create(
+                user=request.user,
+                name=inv_name,
+                category=inv_category,
+                model_info=inv_model,
+                quantity=quantity,
+                unit=inv_unit,
+                purchase_price=quantity * unit_price,
+                purchase_date=datetime.date.today(),
+                notes=description,
+                source_transaction=tx,
+            )
+
+        # Satış → envanter kalemini güncelle
+        if request.POST.get('inv_link_sale') and type == 'sale':
+            from inventory.models import InventoryItem
+            inv_item_id = request.POST.get('inv_item_id')
+            if inv_item_id:
+                inv_item = InventoryItem.objects.filter(pk=inv_item_id, user=request.user).first()
+                if inv_item:
+                    inv_item.sale_price    = quantity * unit_price
+                    inv_item.sale_date     = datetime.date.today()
+                    inv_item.sale_quantity = quantity
+                    inv_item.sale_transaction = tx
+                    inv_item.save()
+
         return redirect('dashboard')
     
     # Admin tüm müşterileri görebilir, normal kullanıcılar sadece kendilerinkileri
@@ -51,11 +87,17 @@ def transaction_create(request):
         selected_type = ''
 
     fields = Field.objects.all().order_by('name')
+    from inventory.models import CATEGORIES as INV_CATEGORIES, InventoryItem
+    inv_items = InventoryItem.objects.filter(
+        user=request.user, sale_date__isnull=True
+    ).order_by('name')
     return render(request, 'transactions/transaction_form.html', {
         'customers': customers,
         'fields': fields,
         'selected_type': selected_type,
         'selected_product': selected_product,
+        'inv_categories': INV_CATEGORIES,
+        'inv_items': inv_items,
     })
 
 

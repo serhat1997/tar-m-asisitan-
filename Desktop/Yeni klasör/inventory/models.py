@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from decimal import Decimal
 
 
 CATEGORIES = [
@@ -29,9 +30,24 @@ class InventoryItem(models.Model):
     unit          = models.CharField(max_length=10, choices=UNITS, default='adet', verbose_name='Birim')
     purchase_price = models.DecimalField(max_digits=14, decimal_places=2, verbose_name='Alış Tutarı (₺)')
     purchase_date  = models.DateField(verbose_name='Alınış Tarihi')
+    sale_quantity = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='Satış Adedi')
     sale_price    = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True, verbose_name='Satış Tutarı (₺)')
     sale_date     = models.DateField(null=True, blank=True, verbose_name='Satış Tarihi')
     notes         = models.TextField(blank=True, verbose_name='Notlar')
+    source_transaction = models.ForeignKey(
+        'transactions.Transaction',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='inventory_purchase_item',
+        verbose_name='Kaynak Alış İşlemi'
+    )
+    sale_transaction = models.ForeignKey(
+        'transactions.Transaction',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='inventory_sale_item',
+        verbose_name='Bağlı Satış İşlemi'
+    )
     created_at    = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -45,15 +61,38 @@ class InventoryItem(models.Model):
         return self.sale_date is not None
 
     @property
+    def is_partial_sale(self):
+        return (self.sale_date is not None and
+                self.sale_quantity is not None and
+                self.sale_quantity < self.quantity)
+
+    @property
+    def remaining_quantity(self):
+        if self.sale_quantity is not None:
+            return self.quantity - self.sale_quantity
+        if self.sale_date:
+            return Decimal('0')
+        return self.quantity
+
+    def _effective_purchase_cost(self):
+        """Satılan adet için orantılı alış maliyeti."""
+        sold_qty = self.sale_quantity if self.sale_quantity is not None else self.quantity
+        if self.quantity:
+            return (self.purchase_price / self.quantity) * sold_qty
+        return self.purchase_price
+
+    @property
     def profit(self):
         if self.sale_price is not None:
-            return self.sale_price - self.purchase_price
+            return self.sale_price - self._effective_purchase_cost()
         return None
 
     @property
     def profit_pct(self):
-        if self.sale_price is not None and self.purchase_price:
-            return ((self.sale_price - self.purchase_price) / self.purchase_price) * 100
+        if self.sale_price is not None:
+            cost = self._effective_purchase_cost()
+            if cost:
+                return ((self.sale_price - cost) / cost) * 100
         return None
 
     @property
@@ -64,6 +103,7 @@ class InventoryItem(models.Model):
 
     @property
     def unit_sale_price(self):
-        if self.sale_price is not None and self.quantity:
-            return self.sale_price / self.quantity
+        sold_qty = self.sale_quantity if self.sale_quantity is not None else self.quantity
+        if self.sale_price is not None and sold_qty:
+            return self.sale_price / sold_qty
         return None
