@@ -11,7 +11,11 @@
       "Bash(python manage.py migrate fields)",
       "Bash(python manage.py makemigrations transactions --name=\"transaction_field_optional\")",
       "Bash(python -c ' *)",
-      "Bash(python manage.py migrate inventory)"
+      "Bash(python manage.py migrate inventory)",
+      "Bash(pip freeze *)",
+      "Bash(echo.)",
+      "Bash(pip install *)",
+      "Bash(git add *)"
     ]
   }
 }
